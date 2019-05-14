@@ -17,32 +17,44 @@ class Item:
         self._has_slots = {}
         
         self.is_specified_by = is_specified_by
+        
+        self._install_history = []
+        self._location_history = []
 
         if container is not None:
             self.change_container(container)
 
         if install_into is not None:
             self.install_into_slot(install_into)
-        
-        
-    def install_into_slot(self, slot):
+
+
+    def install_into_slot(self, slot, date=None):
         if self.can_fit_into_slot_type == slot.slot_type:
-            if slot.has_installed == None:
-                self._is_installed_in = slot
-                slot.has_installed = self
-                self.is_contained_in = None
+            if self._is_installed_in is None:
+                if slot.has_installed is None:
+                    slot.has_installed = self
+                    self._is_installed_in = slot
+                    h = Install_history(slot, self, date, 'Install')
+                    self.change_container(None)
+                else:
+                    Install_history(slot, self, date, 'Slot occupied')
             else:
-                print('Remove', slot.device_installed.common_name)
+                Install_history(slot, self, date, 'Already installed')
         else:
-            print('Cannot install {} into {} because {} does not fit into {}'.format(self.common_name, slot.slot_name, self.can_fit_into_slot_type, slot.slot_type))
+            Install_history(slot, self, date, 'Does not fit')
     
-    def remove_from_slot(self, into_container):
-        self._is_installed_in.has_installed = None
-        self._is_installed_in = None
-        self.change_container(into_container)
+    def remove_from_slot(self, into_container, date=None):
+        if self._is_installed_in is not None:
+            slot = self._is_installed_in
+            slot.has_installed = None
+            self._is_installed_in = None
+            Install_history(slot, self, date, 'Remove')
+            self.change_container(into_container, date)
+        else:
+            pass   # Not in a slot
 
 
-    def change_container(self, new_container):
+    def change_container(self, new_container, date=None):
         old_container = self.is_contained_in
         if old_container is not None:
             try:
@@ -55,10 +67,9 @@ class Item:
         self.is_contained_in = new_container
         self.installed_in_slot = None
 
-        
+
     def __str__(self):
         return '{name} ({manufacturer} {model} sn:{serial})'.format(manufacturer=self.manufacturer, model=self.model_number, serial=self.serial_number, name=self.common_name)
-
 
     def dump(self, level=0, indent='   '):
         print('{} {}'.format(indent*level, self))
@@ -66,6 +77,7 @@ class Item:
             item.dump(level+1)
         for k in sorted(self._has_slots.keys()):
             self._has_slots[k].dump(level+1, indent)
+
 
 
 class Slot_type:
@@ -76,13 +88,15 @@ class Slot_type:
         return self.name
 
 
+
 class Slot:
     def __init__(self, item, name, slot_type):
         self.item = item
-        self.slot_name = name
+        self.slot_name = item.common_name + '.' + name
         self.slot_type = slot_type
         self.item._has_slots[name] = self
         self.has_installed = None
+        self._install_history = []
 
     def dump(self, level=0, indent='  '):
         print('{} {}'.format(indent*level, self))
@@ -97,13 +111,30 @@ class Slot:
 
 
 
-
+class Install_history:
+    def __init__(self, slot, item, date, action):
+        self.slot = slot
+        self.item = item
+        self.date = date
+        self.action = action
+        
+        item._install_history.append(self)
+        slot._install_history.append(self)
+     
+    def __str__(self):
+        return '{} {} {} {}'.format(self.date, self.slot, self.item, self.action)
 
 
 if __name__ == '__main__':
     st_usba = Slot_type('USB-A')
     st_sata = Slot_type('SATA')
     st_mPCIe = Slot_type('mPCIe')
+    st_uSD = Slot_type('uSD')
+    st_SIM = Slot_type('SIM')
+    st_mSIM = Slot_type('miniSIM')
+    st_uSIM = Slot_type('uSIM')
+    st_nSIM = Slot_type('nanoSIM')
+    st_text = Slot_type('text')
     
     root = Item(common_name='My stuff')
 
@@ -153,11 +184,25 @@ if __name__ == '__main__':
     fs3 = Item(common_name='10-11 flat', container=flatspanners)
     fs4 = Item(common_name='12-13 flat', container=flatspanners)
 
+    m1 = Item('Huawei', 'e3132 USB mobile modem', '<unknown>', '', fits_into=st_usba, install_into=lu4)
+    m1s1 = Slot(m1, 'SIM', st_uSIM)
+    m1s2 = Slot(m1, 'SD', st_uSD)
+    sim1 = Item('2degrees', 'SIM', '<unknown>', '', fits_into=st_uSIM, install_into=m1s1)
+    sim1s1 = Slot(sim1, 'Number', st_text)
+    ph1 = Item(common_name='Phone number', fits_into=st_text, install_into=sim1s1)
+
     root.dump()
 
-    seckey.remove_from_slot(into_container=cab1)
-    hdd1.remove_from_slot(into_container=cab1)
-    seckey.install_into_slot(ls1)
+    seckey.install_into_slot(lu1, date='00:01')
+    seckey.remove_from_slot(into_container=cab1, date='00:02')
+    seckey.install_into_slot(ls1, date='00:03')
+    seckey.install_into_slot(lu1, date='00:04')
+    seckey.install_into_slot(usbh1p3, date='00:05')
+    hdd1.remove_from_slot(into_container=cab1, date='00:06')
     
     root.dump()
 
+    for item in seckey._install_history:
+        print(item)
+
+    m1.dump()
