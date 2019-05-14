@@ -21,6 +21,8 @@ class Item:
         self._install_history = []
         self._location_history = []
 
+        self._parameters = {}
+
         if container is not None:
             self.change_container(container)
 
@@ -51,7 +53,7 @@ class Item:
             Install_history(slot, self, date, 'Remove')
             self.change_container(into_container, date)
         else:
-            pass   # Not in a slot
+            Install_history(slot, self, date, 'Not in a slot')
 
 
     def change_container(self, new_container, date=None):
@@ -71,8 +73,10 @@ class Item:
     def __str__(self):
         return '{name} ({manufacturer} {model} sn:{serial})'.format(manufacturer=self.manufacturer, model=self.model_number, serial=self.serial_number, name=self.common_name)
 
-    def dump(self, level=0, indent='   '):
-        print('{} {}'.format(indent*level, self))
+    def dump(self, level=0, indent='  '):
+        print('{}{}'.format(indent*level, self))
+        for k in sorted(self._parameters.keys()):
+            self._parameters[k].dump(level+1, indent)
         for item in sorted(self._contains.keys()):
             item.dump(level+1)
         for k in sorted(self._has_slots.keys()):
@@ -99,16 +103,29 @@ class Slot:
         self._install_history = []
 
     def dump(self, level=0, indent='  '):
-        print('{} {}'.format(indent*level, self))
+        print('{}{}'.format(indent*level, self))
         if self.has_installed is not None:
             self.has_installed.dump(level+1, indent)
         else:
-            print('{} <empty>'.format(indent*(level+1)))
+            print('{}<empty>'.format(indent*(level+1)))
 
 
     def __str__(self):
         return '{} ({})'.format(self.slot_name, self.slot_type.name)
 
+
+class Parameter:
+    def __init__(self, item, name, value):
+        self.item = item
+        self.name = name
+        self.value = value
+        self.item._parameters[name] = self
+
+    def __str__(self):
+        return '{}={}'.format(self.name, self.value)
+
+    def dump(self, level, indent='  '):
+        print('{}{}'.format(indent*level, self))
 
 
 class Install_history:
@@ -134,7 +151,6 @@ if __name__ == '__main__':
     st_mSIM = Slot_type('miniSIM')
     st_uSIM = Slot_type('uSIM')
     st_nSIM = Slot_type('nanoSIM')
-    st_text = Slot_type('text')
     
     root = Item(common_name='My stuff')
 
@@ -184,12 +200,12 @@ if __name__ == '__main__':
     fs3 = Item(common_name='10-11 flat', container=flatspanners)
     fs4 = Item(common_name='12-13 flat', container=flatspanners)
 
-    m1 = Item('Huawei', 'e3132 USB mobile modem', '<unknown>', '', fits_into=st_usba, install_into=lu4)
+    m1 = Item('Huawei', 'e3132 USB mobile modem', '<unknown>', 'Modem', fits_into=st_usba, install_into=lu4)
+    m1_imei = Parameter(m1, 'IMEI', '5432459356')
     m1s1 = Slot(m1, 'SIM', st_uSIM)
     m1s2 = Slot(m1, 'SD', st_uSD)
-    sim1 = Item('2degrees', 'SIM', '<unknown>', '', fits_into=st_uSIM, install_into=m1s1)
-    sim1s1 = Slot(sim1, 'Number', st_text)
-    ph1 = Item(common_name='Phone number', fits_into=st_text, install_into=sim1s1)
+    sim1 = Item('2degrees', '3G SIM', '<unknown>', 'SIM', fits_into=st_uSIM, install_into=m1s1)
+    sim1_phone = Parameter(sim1, 'Number', '021 14 25 358')
 
     root.dump()
 
@@ -206,3 +222,4 @@ if __name__ == '__main__':
         print(item)
 
     m1.dump()
+
