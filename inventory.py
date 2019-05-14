@@ -1,14 +1,9 @@
         
 class Item:
-    def __init__(self, manufacturer='<none>', model_number='<none>', serial_number='<none>', common_name='', description='', location=None, container=None, fits_into=None, install_into=None, is_specified_by=None, ):
-        self.manufacturer = manufacturer
-        self.model_number = model_number
-        self.serial_number = serial_number
-        self.common_name = common_name
-        self.description = description
+    def __init__(self, name, format_string=None, container=None, fits_into=None, install_into=None, is_specified_by=None, parameters={}, **kwargs):
+        self.name = name
+        self.format_string = format_string if format_string is not None else '{name}'
 
-        self.has_location = location
-        
         self.is_contained_in = None
         self._contains = {}
 
@@ -21,7 +16,9 @@ class Item:
         self._install_history = []
         self._location_history = []
 
-        self._parameters = {}
+        self._parameters = kwargs
+        for k in parameters:
+            self._parameters[k] = parameters[k]
 
         if container is not None:
             self.change_container(container)
@@ -71,16 +68,26 @@ class Item:
 
 
     def __str__(self):
-        return '{name} ({manufacturer} {model} sn:{serial})'.format(manufacturer=self.manufacturer, model=self.model_number, serial=self.serial_number, name=self.common_name)
+        return self.format_string.format(name=self.name, **self._parameters)
 
-    def dump(self, level=0, indent='  '):
+    def dump(self, level=0, indent='|  '):
         print('{}{}'.format(indent*level, self))
-        for k in sorted(self._parameters.keys()):
-            self._parameters[k].dump(level+1, indent)
-        for item in sorted(self._contains.keys()):
+        
+        for k in sorted(self._parameters):
+            print('{}{}={}'.format(indent*(level+1), k, self._parameters[k]))
+        if len(self._parameters) > 0 and (len(self._contains) > 0 or len(self._has_slots) > 0):
+            print('{}--'.format(indent*(level+1)))
+
+        for item in sorted(self._contains, key=lambda k: k.name):
             item.dump(level+1)
-        for k in sorted(self._has_slots.keys()):
+        if len(self._contains) > 0 and len(self._has_slots) > 0:
+            print('{}--'.format(indent*(level+1)))
+
+        for k in sorted(self._has_slots):
             self._has_slots[k].dump(level+1, indent)
+
+        if len(self._parameters) > 0 or len(self._contains) > 0 or len(self._has_slots) > 0:
+            print('{}+--'.format(indent*(level), self))
 
 
 
@@ -96,7 +103,7 @@ class Slot_type:
 class Slot:
     def __init__(self, item, name, slot_type):
         self.item = item
-        self.slot_name = item.common_name + '.' + name
+        self.slot_name = name
         self.slot_type = slot_type
         self.item._has_slots[name] = self
         self.has_installed = None
@@ -108,6 +115,7 @@ class Slot:
             self.has_installed.dump(level+1, indent)
         else:
             print('{}<empty>'.format(indent*(level+1)))
+        print('{}+--'.format(indent*level))
 
 
     def __str__(self):
@@ -143,6 +151,8 @@ class Install_history:
 
 
 if __name__ == '__main__':
+    detailed_format_string='{name} ({manufacturer} {model} {serial})'
+    
     st_usba = Slot_type('USB-A')
     st_sata = Slot_type('SATA')
     st_mPCIe = Slot_type('mPCIe')
@@ -152,60 +162,58 @@ if __name__ == '__main__':
     st_uSIM = Slot_type('uSIM')
     st_nSIM = Slot_type('nanoSIM')
     
-    root = Item(common_name='My stuff')
+    root = Item('My stuff')
 
-    m1 = Item(common_name='Moveable', container=root)
+    m1 = Item('Moveable', container=root)
 
-    h1 = Item(common_name='9 Liverton Crescent', container=root)
-    h2 = Item(common_name='Study', container=h1)
-    h3 = Item(common_name='Family room', container=h1)
-    cab1 = Item(common_name='4 drawer cabinet', container=h3)
+    h1 = Item('Home', container=root, address='9 Liverton Crescent')
+    h2 = Item('Study', container=h1)
+    h3 = Item('Family room', container=h1)
+    cab1 = Item('4 drawer cabinet', container=h3)
 
-    o1 = Item(common_name='EPIC Centre', container=root)
-    o2 = Item(common_name='Office', container=o1)
-    o3 = Item(common_name='Store room', container=o1)
+    o1 = Item('Brush office', container=root, address='EPIC Centre, 106 Manchester Street')
+    o2 = Item('Office', container=o1)
+    o3 = Item('Store room', container=o1)
 
-    laptop1 = Item('HP', 'Envy 15', '111XX', "Stephen's laptop", container=m1)
+    laptop1 = Item("Stephen's laptop", container=m1, manufacturer='HP', model='Envy 15', serial='QWOP541234', format_string=detailed_format_string)
     lu1 = Slot(laptop1, 'usb1', st_usba)
     lu2 = Slot(laptop1, 'usb2', st_usba)
     lu3 = Slot(laptop1, 'usb3', st_usba)
     lu4 = Slot(laptop1, 'usb4', st_usba)
     ls1 = Slot(laptop1, 'sata1', st_sata)
     
-    hdd1 = Item('WD', 'WSFDS', '222YY', "250GB SSD", fits_into=st_sata, install_into=ls1)
-    flash8g = Item('Generic', '8GB flash', '<unknown>', "Red 8G flash drive", fits_into=st_usba, install_into=lu1)
-    seckey = Item('Yubico', 'Yubikey 5', '<unknown>', "Security key #1", fits_into=st_usba, install_into=lu2)
+    hdd1 = Item('256G SSD', fits_into=st_sata, install_into=ls1, manufacturer='WD', model='WSFDS', serial='222YY', format_string=detailed_format_string)
+    flash8g = Item('Red 8G flash', fits_into=st_usba, install_into=lu1)
+    seckey = Item('Yubikey_1', fits_into=st_usba, install_into=lu2, manufacturer='Yubico', model='Yubikey 5', serial='<unknown>', format_string=detailed_format_string)
 
-    usbh1 = Item('Generic', '4-port USB hub', '<unknown>', 'Black USB hub', fits_into=st_usba, install_into=lu3)
+    usbh1 = Item('Black USB hub', fits_into=st_usba, install_into=lu3)
     usbh1p1 = Slot(usbh1, 'usb1', st_usba)
     usbh1p2 = Slot(usbh1, 'usb2', st_usba)
     usbh1p3 = Slot(usbh1, 'usb3', st_usba)
     usbh1p4 = Slot(usbh1, 'usb4', st_usba)
     
-    laptop2 = Item('Lenovo', 'WQ123', '3333AAA', "Cathy's laptop", container=h2)
-    mon1 = Item('AOC', 'IW2269', '555XY', "Work monitor", container=o2)
-    mon2 = Item('AOC', 'IW2269', '8XYZ987', "Home monitor", container=h2)
+    laptop2 = Item("Cathy's laptop", container=h2)
+    mon1 = Item("Work monitor", container=o2, manufacturer='AOC', model='IW2269', serial='555XY')
+    mon2 = Item("Home monitor", container=h2, manufacturer='AOC', model='IW2269', serial='8XYZ987')
 
-    ub1 = Item(common_name='Ubuntu 18.10 LTS', container=hdd1)
-    lic1 = Item(common_name='Expensive licence file', container=hdd1)
-    word = Item(common_name='MS Word', container=hdd1)
-    ooorg = Item(common_name='LibreOffice', container=hdd1)
+    ub1 = Item('Ubuntu 18.10 LTS', container=hdd1, cost='$0.00', value='$1000.00')
+    lic1 = Item('Expensive licence file', container=hdd1, cost='$10000.00', value='$10000.00')
+    word = Item('MS Word', container=hdd1, cost='$100.00', value='$1.00')
+    ooorg = Item('LibreOffice', container=hdd1, cost='$0.00', value='($10.00)')
 
-    toolbox1 = Item(common_name='Big toolbox', container=m1)
-    toolbox2 = Item(common_name='Small toolbox', container=m1)
-    hammer = Item(common_name='Hammer', container=toolbox1)
-    flatspanners = Item(common_name='Flat spanner set', container=toolbox1)
-    fs1 = Item(common_name='6-7 flat', container=flatspanners)
-    fs2 = Item(common_name='8-9 flat', container=flatspanners)
-    fs3 = Item(common_name='10-11 flat', container=flatspanners)
-    fs4 = Item(common_name='12-13 flat', container=flatspanners)
+    toolbox1 = Item('Big toolbox', container=m1)
+    toolbox2 = Item('Small toolbox', container=m1)
+    hammer = Item('Hammer', container=toolbox1)
+    flatspanners = Item('Flat spanner set', container=toolbox1)
+    fs1 = Item('6-7 flat', container=flatspanners)
+    fs2 = Item('8-9 flat', container=flatspanners)
+    fs3 = Item('10-11 flat', container=flatspanners)
+    fs4 = Item('12-13 flat', container=flatspanners)
 
-    m1 = Item('Huawei', 'e3132 USB mobile modem', '<unknown>', 'Modem', fits_into=st_usba, install_into=lu4)
-    m1_imei = Parameter(m1, 'IMEI', '5432459356')
+    m1 = Item('Huawei modem', fits_into=st_usba, install_into=lu4, IMEI='543213564')
     m1s1 = Slot(m1, 'SIM', st_uSIM)
     m1s2 = Slot(m1, 'SD', st_uSD)
-    sim1 = Item('2degrees', '3G SIM', '<unknown>', 'SIM', fits_into=st_uSIM, install_into=m1s1)
-    sim1_phone = Parameter(sim1, 'Number', '021 14 25 358')
+    sim1 = Item('2degrees SIM', fits_into=st_uSIM, install_into=m1s1, Number='0211425358')
 
     root.dump()
 
