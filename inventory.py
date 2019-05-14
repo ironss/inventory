@@ -20,16 +20,18 @@ from a slot, when an Item is stored in a container, etc.
 class Item:
     """
     An Item is a thing to be kept in the inventory system. It keeps a record of three types 
-    of things:
+    of relationships between things:
 
     * a set of Items that it 'contains'
 
     * a set of slots that can each be empty or have one Item installed into it, 
       provided that the Item-installed is of the same Slot_type as the slot
 
-    * set set of key-value parameters, gathered from the extra keyword arguments 
-      provided to the __init__ function. These are useful for location address, manufacturer,
-      model, serial numbers, etc.
+    * to-do: an hierarchy of things in a system
+    
+    An Item also has set set of key-value parameters, gathered from the extra keyword arguments 
+    provided to the __init__ function. These are useful for location address, manufacturer,
+    model, serial numbers, etc.
     
     Each item can be either stored in a container or plugged into a slot, not both. The
     thinking is that an Item in a slot has no location of its own: it is located in the 
