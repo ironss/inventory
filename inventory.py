@@ -39,7 +39,7 @@ class Item:
     
     Installing and removing from slots is managed well; changing containers needs work.
     """
-    def __init__(self, name, format_string=None, fits_into=None, container=None, install_into=None, is_specified_by=None, parameters={}, **kwargs):
+    def __init__(self, name, format_string=None, fits_into=None, container=None, install_into=None, item_spec=None, parameters={}, **kwargs):
         self.name = name
         self.format_string = format_string if format_string is not None else '{name}'
 
@@ -50,7 +50,9 @@ class Item:
         self._is_installed_in = None
         self._has_slots = {}
         
-        self.is_specified_by = is_specified_by
+        self.is_specified_by = item_spec
+        if self.is_specified_by is not None:
+            self.is_specified_by._is_item_spec_for = self
         
         self._install_history = []
         self._location_history = []
@@ -72,7 +74,7 @@ class Item:
         kwargs['name'] = self.name + '.1'
         kwargs['format_string'] = self.format_string
         kwargs['fits_into'] = self.can_fit_into_slot_type
-        kwargs['is_specified_by'] = self.is_specified_by
+        kwargs['item_spec'] = self.is_specified_by
         kwargs['parameters'] = self._parameters
 
         new_item = Item(**kwargs)
@@ -154,7 +156,7 @@ class Item:
 class Slot_type:
     """
     This could just as well be a string type. But having a class of its own means we
-    things about it properly.
+    think about it properly.
     """
     def __init__(self, name):
         self.name = name
@@ -165,10 +167,13 @@ class Slot_type:
 
 
 class Slot:
-    def __init__(self, item, name, slot_type):
+    def __init__(self, item, name, slot_type, slot_spec=None):
         self.item = item
         self.slot_name = name
         self.slot_type = slot_type
+        self.slot_spec = slot_spec
+        if self.slot_spec is not None:
+            self.slot_spec._is_slot_spec_for[self] = 1
         self.item._has_slots[name] = self
         self.has_installed = None
         self._install_history = []
@@ -185,6 +190,37 @@ class Slot:
     def __str__(self):
         return '{} ({})'.format(self.slot_name, self.slot_type.name)
 
+
+class Item_spec:
+    def __init__(self, name, format_string=None, fits_into=None, parameters={}, **kwargs):
+        self.name = name
+        self.format_string = format_string if format_string is not None else '{name}'
+        self.can_fit_into_slot_type = fits_into
+
+        self._parameters = {}
+        for k in parameters:
+            self._parameters[k] = parameters[k]
+        for k in kwargs:
+            self._parameters[k] = kwargs[k]
+
+        self._is_item_spec_for = {}
+        self._has_slot_specs = {}
+
+    def new_item(self, **kwargs):
+        new_item = Item(self.name, self.format_string, fits_into=self.can_fit_into_slot_type, item_spec=self, parameters=self._parameters, **kwargs)
+        for ssn in self._has_slot_specs:
+            ss = self._has_slot_specs[ssn]
+            Slot(new_item, ss.name, ss.slot_type, ss)
+        return new_item
+
+
+class Slot_spec:
+    def __init__(self, item_spec, name, slot_type):
+        self.item_spec = item_spec
+        self.name = name
+        self.slot_type = slot_type
+        self._is_slot_spec_for = {}
+        self.item_spec._has_slot_specs[name] = self
 
 
 class Install_history:

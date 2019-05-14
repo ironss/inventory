@@ -86,6 +86,21 @@ def test_all():
     m2.dump()
     laptop3.dump()
 
+def test_spec():
+    st_usba = Slot_type('USB-A')
+    st_uSD = Slot_type('uSD')
+    st_uSIM = Slot_type('uSIM')
+
+    ms1 = Item_spec('Huawei modem', fits_into=st_usba, manufacturer='Huawei', model='e3131 3G modem')
+    ms1ss1 = Slot_spec(ms1, 'SIM', st_uSIM)
+    ms1ss2 = Slot_spec(ms1, 'SD', st_uSD)
+
+    root = Item('My stuff')
+    m1 = ms1.new_item(container=root, IMEI='12355')
+    m2 = ms1.new_item(container=root, IMEI='QWERT')
+    
+    root.dump()
+
 if __name__ == '__main__':
     test_all()
-
+    test_spec()
