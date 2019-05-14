@@ -1,6 +1,6 @@
         
 class Item:
-    def __init__(self, name, format_string=None, container=None, fits_into=None, install_into=None, is_specified_by=None, parameters={}, **kwargs):
+    def __init__(self, name, format_string=None, fits_into=None, container=None, install_into=None, is_specified_by=None, parameters={}, **kwargs):
         self.name = name
         self.format_string = format_string if format_string is not None else '{name}'
 
@@ -16,9 +16,11 @@ class Item:
         self._install_history = []
         self._location_history = []
 
-        self._parameters = kwargs
+        self._parameters = {}
         for k in parameters:
             self._parameters[k] = parameters[k]
+        for k in kwargs:
+            self._parameters[k] = kwargs[k]
 
         if container is not None:
             self.change_container(container)
@@ -27,6 +29,22 @@ class Item:
             self.install_into_slot(install_into)
 
 
+    def duplicate(self, **kwargs):
+        kwargs['name'] = self.name + '.1'
+        kwargs['format_string'] = self.format_string
+        kwargs['fits_into'] = self.can_fit_into_slot_type
+        kwargs['is_specified_by'] = self.is_specified_by
+        kwargs['parameters'] = self._parameters
+
+        new_item = Item(**kwargs)
+
+        for sn in self._has_slots:
+            slot = self._has_slots[sn]
+            new_slot = Slot(new_item, slot.slot_name, slot.slot_type)
+        
+        return new_item
+
+        
     def install_into_slot(self, slot, date=None):
         if self.can_fit_into_slot_type == slot.slot_type:
             if self._is_installed_in is None:
@@ -229,5 +247,10 @@ if __name__ == '__main__':
     for item in seckey._install_history:
         print(item)
 
+    m2 = m1.duplicate(IMEI='NEW')
+    laptop3 = laptop1.duplicate(serial='Another')
+
     m1.dump()
+    m2.dump()
+    laptop3.dump()
 
