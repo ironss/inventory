@@ -1,34 +1,3 @@
-
-
-
-class Item:
-    def __init__(self, common_name, notes=None, container=None):
-        self.notes = notes
-        self.common_name = common_name
-        self.container = None
-        self.installed_in_slot = None
-        self.inventory = {}
-        self.slots = {}
-        self.change_container(container)
-        
-    def change_container(self, new_container):
-        old_container = self.container
-        if old_container is not None:
-            try:
-                del(old_container.inventory[self])  # Remove from old_container.inventory
-            except KeyError:        # If not in this container
-                pass
-
-        if new_container is not None:
-            new_container.inventory[self] = 1   # Add to new container
-        self.container = new_container
-        self.installed_in_slot = None
-        
-
-    def __str__(self):
-        return self.common_name
-
-
         
 class Item:
     def __init__(self, manufacturer='<none>', model_number='<none>', serial_number='<none>', common_name='', description='', location=None, container=None, fits_into=None, install_into=None, is_specified_by=None, ):
